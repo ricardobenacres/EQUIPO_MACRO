@@ -26,6 +26,11 @@ View(PWTI)
 PWTI <- read_csv("Precios WTI_2.csv")
 PWTI$Fechas     <- parse_date_time(PWTI$Date, "mdy")
 # 1607 entradas
+precios <- PWTI$Price
+which(precios %in% min(precios))       #en el renglón 221 está el precio negativo
+precios[221] <- .01                    #cambiando el valor negativo por .01
+min(precios)                      
+PWTI$Price = precios
 
 #Realizando nuestra serie de tiempo
 #Confirmamos que eliminamos el precio negativo
@@ -38,7 +43,7 @@ diflogprecios.ts=diff(log(precio.ts))
 plot(diflogprecios.ts)
 
   #Checando estacionariedad
-  adf.test(diflogprecios.ts,alternative="stationary") #Es estacionaria nuestra serie
+  adf.test(diflogprecios.ts, k = 30) #Es estacionaria nuestra serie
   
   #Toca observar nuestra autocorrelación y autocorrelación parcial.
   
@@ -56,8 +61,8 @@ plot(diflogprecios.ts)
   pacf(diflogprecios.ts) ##autocorrelación, número de autoregresivos, tenemos 5
   
   #Para que el rezago coincida con la frecuencia:
-  acf(ts(diflogprecios.ts,frequency=1))
-  pacf(ts(diflogprecios.ts,frequency=1))
+  acf(ts(diflogprecios.ts,frequency=1), lag.max = 535) #535 es 1/3 del total de la muestra 
+  pacf(ts(diflogprecios.ts,frequency=1), lag.max = 535)
   
 
 #Comenzando ahora con nuestras autoregresiones
@@ -67,7 +72,7 @@ summary(modelo1)
   #Podemos observar claramente que el primer periodo es sigificativo. 
   #Ahora procede realizar 30 rezagos porque nuestra serie es diaria.
 
-modelo2<-dynlm(precio.ts~L(precio.ts,1:30),data=precio.ts) #L=un rezago
+modelo2<-dynlm(precio.ts~L(precio.ts,1:30),data=precio.ts) #L=treinta rezagos
 summary(modelo2)
 
   #La mayoría de los periodos anteriores no son significativos. Por lo tanto,
@@ -79,6 +84,12 @@ summary(modelo2)
 modeloARMA=arima(precio.ts,order=c(5,1,2)) #lo hacemos con la serie de tiempo inicial
 modeloARMA
 tsdiag(modeloARMA) 
+
+
+
+
+
+
 
 
 #=====================================================
