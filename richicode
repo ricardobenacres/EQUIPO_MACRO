@@ -367,7 +367,7 @@ View(PWTI)
 
     
       
-# MODELO ARMA -----------------------
+# MODELO ARIMA -----------------------
       
       # La serie transformada 
       diflogprecios.ts
