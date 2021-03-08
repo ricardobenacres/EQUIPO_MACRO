@@ -23,7 +23,7 @@ library(mlr)
 View(PWTI)
 
       # Lectura y limpieza de datos
-      PWTI <- read_csv("Documents/ITAM/MACROECONOMETRÍA/Proyecto/DATOS/Crude Oil WTI Futures Historical Data-4.csv")
+      PWTI <- read_csv("~/Documents/ITAM/MACROECONOMETRÍA/Proyecto/DATOS/Crude Oil WTI Futures Historical Data-4.csv")
       PWTI$Fechas     <- parse_date_time(PWTI$Date, "mdy")
       # 1607 entradas
 
@@ -390,10 +390,11 @@ View(PWTI)
         
       
       # CORRELOGRAMA 
-      acf(ts(diflogprecios.ts, frequency = 1), lag.max = 535) #que imprima máximo un tercio de la muestra
       # hay autocorr entre hoy y 5, 10, 20, 21 y 28 días atrás; el correlograma tiende a cero.
+      acf(ts(diflogprecios.ts, frequency = 1), lag.max = 535, main = 'Entre la variable y su pasado')
       
       # MODELO
+
       #Componentes AR
       #AR1
       modeloAR1 <- arima(diflogprecios.ts, order=c(1,0,0))     
@@ -417,10 +418,24 @@ View(PWTI)
       
       #AR5
       modeloAR5 <- arima(diflogprecios.ts, order=c(5,0,0))     
-      summary(modeloAR5) #significativo
-      coeftest(modeloAR5)                 
-
+      summary(modeloAR5) 
+      coeftest(modeloAR5)  #todo significativo
       #AR6, AR7, AR8 y AR9 no son significativos.
+      
+      #Raíces
+      autoplot(modeloAR5)  #hay estabilidad 
+      
+      #Residuos
+      tsdisplay(residuals(modeloAR5), lag.max=535, 
+                main='Residuos del modelo ARIMA(5,2,0)')
+      checkresiduals(modeloAR5)
+      
+      #Coeficientes
+      tsdisplay(modeloAR5$coef, lag.max=7, main = 'Coeficientes del modelo ARIMA(5,0,0)')
+      
+      #Pronóstico
+      pronosAR <- forecast(modeloAR5)
+      plot(pronosAR)
       
       #Componentes MA !!!problemas: incorporar MA hace que R no pueda calcular la significancia de los coeficientes: "Warning: Hessian negative-semidefinite".
       
@@ -460,7 +475,6 @@ View(PWTI)
       coeftest(modeloARIMA504) # ar2,ma2 y ma 3 no significativos
       modeloARIMA504.1 <- arima(diflogprecios.ts, order = c(5,0,4),
                               fixed=c(0, 0, 0, NA, 0, NA, 0, 0, NA, NA))
-      
       summary(modeloARIMA504.1)
       coeftest(modeloARIMA504.1)
       
@@ -470,30 +484,7 @@ View(PWTI)
       summary(modeloARIMA505)
       coeftest(modeloARIMA505) #todo significativo
       
-      #MA6
-      modeloARIMA506 <- arima(diflogprecios.ts, order = c(5,0,6),
-                              fixed=c(0, 0, 0, NA, 0, NA, 0, 0, NA, NA, NA, NA))
-      summary(modeloARIMA506)
-      coeftest(modeloARIMA506) #ma6 no significativamente distinto de cero 
-      
-      #MA7
-      modeloARIMA507 <- arima(diflogprecios.ts, 
-                                order=c(5,0,7), 
-                                fixed = c(0, 0, 0, NA, 0, NA, 0, 0, NA, NA, 0, NA, NA))
-      summary(modeloARIMA507)  
-      coeftest(modeloARIMA507) #ma7 no significativo
-      
-      #MA8
-      modeloARIMA508 <- arima(diflogprecios.ts, order = c(5,0,8), 
-                              fixed = c(0, 0, 0, NA, 0, NA, 0, 0, NA, NA, 0, NA, NA, NA))
-      summary(modeloARIMA508)      
-      coeftest(modeloARIMA508) #componente ma8 no significativamente distinto de cero      
-      
-      #MA9
-      modeloARIMA509 <- arima(diflogprecios.ts, order = c(5,0,9), 
-                              fixed = c(0, 0, 0, NA, 0, NA, 0, 0, NA, NA, 0, NA, NA, NA, NA))
-      summary(modeloARIMA509)      
-      coeftest(modeloARIMA509) #ma9 tampoco distinto de cero
+      #MA6, MA7, MA8, MA9 no significativamente distintos de cero
       
       # MODELO FINAL
       modeloARIMA505 <- arima(diflogprecios.ts, order = c(5,0,5),
@@ -501,16 +492,19 @@ View(PWTI)
       summary(modeloARIMA505)
       coeftest(modeloARIMA505) #todo significativo
       
+      #Raíces
+      plot(modeloARIMA505)
+      
+      #Residuos
+      tsdisplay(residuals(modeloARIMA505), lag.max=535, main='Residuos del modelo ARIMA(5,2,5)')
+      checkresiduals(modeloARIMA505)
+      
+      #Coeficientes
+      tsdisplay(modeloARIMA505$coef, lag.max=8, main = 'Coeficientes del modelo ARIMA(5,2,5)')
+      
+      #Pronóstico
       pronosarima <- forecast(modeloARIMA505, h = 365)
       plot(pronosarima)
-      
-      ######## Si revisamos con la función auto.arima, se supone que nos da lo más chingón y nos da algo distinto 
-      modelobueno <- auto.arima(precios.ts)
-      modelobueno2 <- auto.arima(diflogprecios.ts)
-      summary(modelobueno)
-      coeftest(modelobueno)      
-      coeftest(modelobueno2)
-      pronosb <- forecast(modelobueno)   
-      pronosb2 <- forecast(modelobueno2)
-      plot(pronosb2)      
+        
+       
       
