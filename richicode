@@ -489,23 +489,23 @@ View(PWTI)
       
       # MODELO FINAL
       
-      modeloARIMA405 <- arima(diflogprecios.ts, order = c(5,0,5),
+      modeloARIMA415 <- arima(diflogprecios.ts, order = c(5,0,5),
                               fixed=c(0, 0, 0, NA, 0, NA, 0, 0, NA, NA, NA))
-      summary(modeloARIMA405)
-      coeftest(modeloARIMA405) #todo significativo
+      summary(modeloARIMA415)
+      coeftest(modeloARIMA415) #todo significativo
       
       #Raíces
-      plot(modeloARIMA405)
+      plot(modeloARIMA415)
       
       #Residuos
-      tsdisplay(residuals(modeloARIMA405), lag.max=535, main='Residuos del modelo ARIMA(4,2,5)')
-      checkresiduals(modeloARIMA405)
+      tsdisplay(residuals(modeloARIMA415), lag.max=535, main='Residuos del modelo ARIMA(4,1,5)')
+      checkresiduals(modeloARIMA415)
       
       #Coeficientes
-      tsdisplay(modeloARIMA405$coef, lag.max=8, main = 'Coeficientes del modelo ARIMA(4,2,5)')
+      tsdisplay(modeloARIMA415$coef, lag.max=8, main = 'Coeficientes del modelo ARIMA(4,1,5)')
       
       #Pronóstico
-      pronosarima <- forecast(modeloARIMA405, h = 365)
+      pronosarima <- forecast(modeloARIMA415, h = 365)
       plot(pronosarima)
         
        
