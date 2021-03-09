@@ -392,15 +392,16 @@ View(PWTI)
       # CORRELOGRAMA 
       # hay autocorr entre hoy y 5, 10, 20, 21 y 28 días atrás; el correlograma tiende a cero.
       acf(ts(diflogprecios.ts, frequency = 1), lag.max = 535, main = 'Entre la variable y su pasado')
-      
+    
+    
       # MODELO
-
+      
       #Componentes AR
       #AR1
       modeloAR1 <- arima(diflogprecios.ts, order=c(1,0,0))     
       summary(modeloAR1) #significativo
       coeftest(modeloAR1)
-      
+
       #AR2
       modeloAR2 <- arima(diflogprecios.ts, order=c(2,0,0))     
       summary(modeloAR2) #significativo
@@ -437,7 +438,7 @@ View(PWTI)
       pronosAR <- forecast(modeloAR5)
       plot(pronosAR)
       
-      #Componentes MA !!!problemas: incorporar MA hace que R no pueda calcular la significancia de los coeficientes: "Warning: Hessian negative-semidefinite".
+      #Componentes MA 
       
       #MA1
       modeloARMA501 <- arima(diflogprecios.ts, order = c(5,0,1))
@@ -449,63 +450,62 @@ View(PWTI)
       summary(modeloARIMA502)
       coeftest(modeloARIMA502) #AR5 no significativo
       modeloARIMA502.1 <- arima(diflogprecios.ts, 
-                           order=c(5,0,2), 
+                           order=c(4,0,2), 
                            fixed=c(NA, NA, NA, NA, 0, NA, NA, NA)) 
       summary(modeloARIMA502.1) 
       coeftest(modeloARIMA502.1) #todo significativo
       
       #MA3
-      modeloARIMA503 <- arima(diflogprecios.ts, order = c(5,0,3),
-                              fixed=c(NA, NA, NA, NA, 0, NA, NA, NA, NA))
-      summary(modeloARIMA503)
-      coeftest(modeloARIMA503) #AR3 no significativamente distinto de cero
-      modeloARIMA503.1 <- arima(diflogprecios.ts, order = c(5,0,3),
-                              fixed=c(NA, NA, 0, NA, 0, NA, NA, NA, NA))
-      summary(modeloARIMA503.1)
-      coeftest(modeloARIMA503.1) #a1 tampoco significativo
-      modeloARIMA503.12 <- arima(diflogprecios.ts, order = c(5,0,3),
-                                fixed=c(0, NA, 0, NA, 0, NA, NA, NA, NA))
-      summary(modeloARIMA503.12)
-      coeftest(modeloARIMA503.12) #todo significativo
+      modeloARIMA403 <- arima(diflogprecios.ts, order = c(4,0,3),
+                              fixed=c(NA, NA, NA, NA, 0, NA, NA, NA))
+      summary(modeloARIMA403)
+      coeftest(modeloARIMA403) #AR3 no significativamente distinto de cero
+     
+      #
+      #  se incorporaron más MA y MA12, 13, 14 y 15 no fueron significativas
+      #
       
-      #MA4
-      modeloARIMA504 <- arima(diflogprecios.ts, order = c(5,0,4),
-                              fixed=c(0, NA, 0, NA, 0, NA, NA, NA, NA, NA))
-      summary(modeloARIMA504)
-      coeftest(modeloARIMA504) # ar2,ma2 y ma 3 no significativos
-      modeloARIMA504.1 <- arima(diflogprecios.ts, order = c(5,0,4),
-                              fixed=c(0, 0, 0, NA, 0, NA, 0, 0, NA, NA))
-      summary(modeloARIMA504.1)
-      coeftest(modeloARIMA504.1)
+      #MODELO FINAL
       
-      #MA5 
-      modeloARIMA505 <- arima(diflogprecios.ts, order = c(5,0,5),
-                              fixed=c(0, 0, 0, NA, 0, NA, 0, 0, NA, NA, NA))
-      summary(modeloARIMA505)
-      coeftest(modeloARIMA505) #todo significativo
-      
-      #MA6, MA7, MA8, MA9 no significativamente distintos de cero
-      
-      
-      # MODELO FINAL
-      
-      modeloARIMA415 <- arima(diflogprecios.ts, order = c(5,0,5),
-                              fixed=c(0, 0, 0, NA, 0, NA, 0, 0, NA, NA, NA))
-      summary(modeloARIMA415)
-      coeftest(modeloARIMA415) #todo significativo
+      modeloARIMA4011 <- arima(diflogprecios.ts, order = c(4,0,11),
+                              fixed=c(NA, 0, NA, NA, 0, NA, NA, 0, 0, NA, 0, 0, 0, NA, NA, NA))
+      summary(modeloARIMA4011)
+      coeftest(modeloARIMA4011)
+
       
       #Raíces
-      plot(modeloARIMA415)
+      plot(modeloARIMA4011)
       
       #Residuos
-      tsdisplay(residuals(modeloARIMA415), lag.max=535, main='Residuos del modelo ARIMA(4,1,5)')
-      checkresiduals(modeloARIMA415)
+      tsdisplay(residuals(modeloARIMA4011), lag.max=535, main='Residuos del modelo ARIMA(4,1,11)')
+      checkresiduals(modeloARIMA4011)
       
       #Coeficientes
-      tsdisplay(modeloARIMA415$coef, lag.max=8, main = 'Coeficientes del modelo ARIMA(4,1,5)')
+      tsdisplay(modeloARIMA4011$coef, lag.max=16, main = 'Coeficientes del modelo ARIMA(4,1,11)')
       
       #Pronóstico
-      pronosarima <- forecast(modeloARIMA415, h = 365)
+      pronosarima <- forecast(modeloARIMA4011, h = 365)
+      plot(pronosarima)
+      
+      
+      #MODELO FINAL si utilizamos precios.ts en vez de diflogprecios.ts
+      modeloAR1orig <- arima(precios.ts, order=c(0,1,1))     
+      summary(modeloAR1orig) #significativo
+      coeftest(modeloAR1orig)
+      #Si trabajamos con precios.ts, solo AR1 es significativo (ver branch precios.ts en github)
+      
+      #Raíces
+      plot(modeloAR1orig)
+      
+      #Residuos
+      tsdisplay(residuals(modeloAR1orig), lag.max=535, main='Residuos del modelo ARIMA(0,1,1)')
+      checkresiduals(modeloAR1orig)
+      
+      #Coeficientes
+      tsdisplay(modeloAR1orig$coef, lag.max=8, main = 'Coeficientes del modelo ARIMA(0,1,1)')
+      
+      #Pronóstico
+      pronosarima <- forecast(modeloAR1orig, h = 365)
       plot(pronosarima)
         
        
