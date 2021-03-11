@@ -465,48 +465,229 @@ View(PWTI)
       #  se incorporaron más MA y MA12, 13, 14 y 15 no fueron significativas
       #
       
-      #MODELO FINAL
-      
-      modeloARIMA4011 <- arima(diflogprecios.ts, order = c(4,0,11),
-                              fixed=c(NA, 0, NA, NA, 0, NA, NA, 0, 0, NA, 0, 0, 0, NA, NA, NA))
-      summary(modeloARIMA4011)
-      coeftest(modeloARIMA4011)
+#MODELO FINAL 1 (precios diferenciados)-------------------------------------
 
-      
-      #Raíces
-      plot(modeloARIMA4011)
-      
-      #Residuos
-      tsdisplay(residuals(modeloARIMA4011), lag.max=535, main='Residuos del modelo ARIMA(4,1,11)')
-      checkresiduals(modeloARIMA4011)
-      
-      #Coeficientes
-      tsdisplay(modeloARIMA4011$coef, lag.max=16, main = 'Coeficientes del modelo ARIMA(4,1,11)')
-      
-      #Pronóstico
-      pronosarima <- forecast(modeloARIMA4011, h = 365)
-      plot(pronosarima)
-      
-      
-      #MODELO FINAL si utilizamos precios.ts en vez de diflogprecios.ts
-      modeloAR1orig <- arima(precios.ts, order=c(0,1,1))     
-      summary(modeloAR1orig) #significativo
-      coeftest(modeloAR1orig)
-      #Si trabajamos con precios.ts, solo AR1 es significativo (ver branch precios.ts en github)
-      
-      #Raíces
-      plot(modeloAR1orig)
-      
-      #Residuos
-      tsdisplay(residuals(modeloAR1orig), lag.max=535, main='Residuos del modelo ARIMA(0,1,1)')
-      checkresiduals(modeloAR1orig)
-      
-      #Coeficientes
-      tsdisplay(modeloAR1orig$coef, lag.max=8, main = 'Coeficientes del modelo ARIMA(0,1,1)')
-      
-      #Pronóstico
-      pronosarima <- forecast(modeloAR1orig, h = 365)
-      plot(pronosarima)
-        
+
+modeloARIMA4011 <- arima(diflogprecios.ts, order = c(4,0,11),
+                         fixed=c(NA, 0, NA, NA, 0, NA, NA, 0, 0, NA, 0, 0, 0, NA, NA, NA))
+summary(modeloARIMA4011)
+coeftest(modeloARIMA4011)
+
+
+#Raíces
+plot(modeloARIMA4011)
+
+# CORRELOGRAMA 
+acf(ts(modeloARIMA4011$residuals, frequency = 1), main = "Correlograma de los residuos")               # PONER JUEVES!!
+acf(ts(modeloARIMA4011$residuals^2, frequency = 1), main = "Correlograma de los residuos al cuadrado") # PONER JUEVES!!
+
+
+#Residuos
+tsdisplay(residuals(modeloARIMA4011), lag.max=535, main='Residuos del modelo ARIMA(4,1,11)')         #PONER
+checkresiduals(modeloARIMA4011)
+residuales2 <- modeloARIMA4011$residuals^2
+residuales  <- modeloARIMA4011$residuals
+acf(ts(residuales, frequency = 1), lag.max = 535, main = 'Correlograma de los residuos')             # PONER JUEVES!!
+acf(ts(residuales2, frequency = 1), lag.max = 10, main = 'Correlograma de los residuos al cuadrado del ARIMA(4,1,11') # PONER JUEVES!!!
+
+#Coeficientes
+tsdisplay(modeloARIMA4011$coef, lag.max=16, main = 'Coeficientes del modelo ARIMA(4,1,11)')          # no necesaria
+
+
+#Gráficamente: observado, modelado y residuos
+revresi <-    rev(residuals(modeloARIMA4011))
+revserie <-   rev(diflogprecios.ts)   
+revpronos <-  rev(pronosarima$fitted)
+datosARIMA <- cbind.data.frame(pronosarima$fitted, residuals(modeloARIMA4011), diflogprecios.ts, PWTI$Fechas[-1607]) 
+ggplot(datosARIMA)+
+  geom_line(aes(PWTI$Fechas[-1607], revpronos), col = "steelblue4", size = .4)+
+  geom_line(aes(PWTI$Fechas[-1607], revserie), col = "green4", size = .2)                            # PONER JUEVES!!
+  
+#Residuos (gráficamente)
+  ggplot(datosARIMA)+
+  geom_line(aes(PWTI$Fechas[-1607], revresi), col = "black")                                         # PONER JUEVES CHANCE
+  
+  #Pronóstico
+  pronosarima <- forecast(modeloARIMA4011, h = 365)
+  plot(pronosarima)
+  View(pronosarima)
+
+
+#MODELO FINAL 2 (si utilizamos precios.ts en vez de diflogprecios.ts) 
+
+
+modeloAR1orig <- arima(precios.ts, order=c(0,1,1))     
+summary(modeloAR1orig) #significativo
+coeftest(modeloAR1orig)
+
+ggplot(datosgarch)+
+  geom_line(aes(x = PWTI$Fechas[-1607], y = rev(diflogprecios.ts)), col = "steelblue4", size = .4)+
+  geom_line(aes(x = PWTI$Fechas[-1607]), y = modelogarch@fit$fitted.values, col = "green4", size = .2)
+
+#Raíces
+plot(modeloAR1orig)
+
+#Residuos
+tsdisplay(residuals(modeloAR1orig), lag.max=535, main='Residuos del modelo ARIMA(0,1,1)')
+checkresiduals(modeloAR1orig)
+
+#Coeficientes
+tsdisplay(modeloAR1orig$coef, lag.max=8, main = 'Coeficientes del modelo ARIMA(0,1,1)')
+
+
+#Pronóstico
+pronosarima2 <- forecast(modeloAR1orig, h = 365)
+plot(pronosarima2)
+View(pronosarima2)
+revresid <-    rev(residuals(modeloAR1orig))
+revseri <-   rev(precios.ts)   
+revpronost <-  rev(pronosarima2$fitted)
+
+#Gráficamente: observado, modelado y residuos
+datosARIMA2 <- cbind.data.frame(pronosarima2$fitted, residuals(modeloAR1orig), precios.ts, PWTI$Fechas)
+ggplot(datosARIMA2)+
+  geom_line(aes(PWTI$Fechas, revpronost), col = "steelblue4", size = .8)+
+  geom_line(aes(PWTI$Fechas, revseri), col = "green4", size = .3)+
+  geom_line(aes(PWTI$Fechas, revresid), col = "black", size = .1)+
+  labs(x = "Año", y = "Precios modelados y observados; residuos", title = "Modelo ARIMA(4,1,11) De los precios del petróleo")
+
+#Residuos (gráficamente)
+ggplot(datosARIMA)+
+  geom_line(aes(PWTI$Fechas[-1607], revresi), col = "black")
+
+
+
+# GARCH Y ARCH -------------------------------------------------------------------------------
+
+
+
+library(rugarch)
+library(rmgarch)
+
+#Primer momento
+modeloinc      <- tslm(data = diflogprecios.ts,
+                       formula = diflogprecios.ts ~ trend) 
+
+summary(modeloinc)   # no significativamente distinta de cero
+
+
+#CORRELOGRAMA
+
+acf(ts(modeloinc$residuals^2, frequency = 1), lag.max = 10, main = "Correlograma de los residuos al cuadrado del modelo incondicional")  # PONER JUEVES!!
+acf(ts(residuales2, frequency = 1), lag.max = 10, main = 'Correlograma de los residuos al cuadrado del ARIMA(4,1,11)') # PONER JUEVES!!!
+pacf(ts(modeloinc$residuals^2, frequency = 1), lag.max = 10, main = "Correlograma de los residuos al cuadrado del modelo incondicional")  # PONER JUEVES!!
+pacf(ts(residuales2, frequency = 1), lag.max = 10, main = 'Correlograma de los residuos al cuadrado del ARIMA(4,1,11)') # PONER JUEVES!!!
+
+#¿Tiene AR significativo la varianza?
+residuosq     <- resid(modeloinc)^2  #residuos al cuadrado  
+vari2         <- dynlm(formula = residuosq ~ L(residuosq), data = residuosq)   # no necesario
+summary(vari2)       # AR1 de la varianza significativo
+
+
+
+# MODELO 
+
+
+
+modelo      <- ugarchspec(mean.model = list(armaOrder=c(4,11))) 
+modelogarch <- ugarchfit(spec = modelo, data = diflogprecios.ts)  
+modelogarch
+
+
+#Correlograma
+acf(modelogarch@fit$residuals, main = "Correlograma de los residuos ARMA(4,1,11)-GARCH(1,1)")           #PONER JUEVES
+pacf(modelogarch@fit$residuals, main = "Correlograma de los residuos ARMA(4,1,11).GARCH(1,1)")          #PONER JUEVES
+plot(modelogarch)
+acf(modelogarch@fit$residuals^2, main = "Correlograma de los residuos al cuadrado ARMA(4,1,11)-GARCH(1,1)")
+pacf(modelogarch@fit$residuals^2)
+
+
+#Guardando variables importantes 
+datosgarch   <- cbind.data.frame(modelogarch@fit[["fitted.values"]], diflogprecios.ts, modelogarch@fit$residuals, PWTI$Fechas[-1607])
+garch.var    <- modelogarch@fit$var             #varianza del GARCH(1,1)
+garch.res2   <- (modelogarch@fit$residuals)^2   #residuos al cuadrado
+revgarch.res2 <- rev(garch.res2)              
+revdiflog     <- rev(diflogprecios.ts)          #reverseando para graficar correctamente 
+revmodel      <- rev(modelogarch@fit$fitted.values)
+
+#Gráficamente (modelado vs observado)
+ggplot(datosgarch)+
+  geom_line(aes(x = PWTI$Fechas[-1607], y = revmodel), col = "steelblue4", size = .5)+
+  geom_line(aes(x = PWTI$Fechas[-1607], y = revdiflog), col = "green4", size = .6)+
+  labs(x = "Año", y = "Tasa de crecimiento de los precios", title = "Modelo ARIMA(4,1,11)-GARCH(1,1) de los precios del petróleo")
+
+#Pronóstico
+pronosgarch <- ugarchforecast(modelogarch, n.ahead = 30)
+plot(pronosgarch)
+
+
+
+
+
+#MODELO GARCH DESDE CERO
+
+modelocero      <- ugarchspec() 
+modelogarch0     <- ugarchfit(spec = modelocero, data = diflogprecios.ts)  
+datos0   <- cbind.data.frame(modelogarch0@fit[["fitted.values"]], diflogprecios.ts, modelogarch0@fit$residuals, PWTI$Fechas[-1607])
+garch0.var    <- modelogarch0@fit$var             #varianza del GARCH(1,1)
+garch0.res2   <- (modelogarch0@fit$residuals)^2   #residuos al cuadrado
+revgarch0.res2 <- rev(garch0.res2)              
+revprecios     <- rev(diflogprecios.ts)          #reverseando para graficar correctamente 
+revmodel0      <- rev(modelogarch0@fit$fitted.values)
+modelogarch0
+
+#Correlograma
+#Residuos
+acf(modelogarch0@fit$residuals, main = "Correlograma de los residuos ARMA(1,0,1)-GARCH(1,1) de los precios del petróleo")   #PONER JUEVES
+pacf(modelogarch@fit$residuals, main = "Correlograma de los residuos ARMA(1,0,1)-GARCH(1,1) de los precios del petróleo")   #PONER JUEVES
+#Residuos al cuadrado
+acf(modelogarch0@fit$residuals^2, main = "Correlograma de los residuos al cuadrado ARMA(1,0,1)-GARCH(1,1)")
+pacf(modelogarch@fit$residuals^2, main = "Correlograma de los residuos al cuadrado ARMA(1,0,1)-GARCH(1,1)")
+plot(modelogarch, which = "all") 
+
+#Gráficamente
+ggplot(datos0)+
+  geom_line(aes(x = PWTI$Fechas[-1607], y = revmodel0), col = "steelblue4", size = .5)+
+  geom_line(aes(x = PWTI$Fechas[-1607], y = revprecios), col = "green4", size = .6)+
+  labs(x = "Año", y = "Tasa de crecimiento de los precios", title = "Modelo ARIMA(4,1,11)-GARCH(1,1) de los precios del petróleo")
+
+#Pronóstico
+pronosgarch <- ugarchforecast(modelogarch, n.ahead = 30)
+plot(pronosgarch)
+
+
+
+#POBANDO CON OTROS GARCH
+
+otrogarch     <- ugarchspec(mean.model = list(armaOrder=c(2,1)))
+modelogarch411 <- ugarchfit(spec = otrogarch, data = diflogprecios.ts)
+modelogarch411
+
+#Correlograma
+pacf(modelogarch411@fit$residuals)
+acf(modelogarch411@fit$residuals)
+pacf(modelogarch411@fit$residuals^2)
+acf(modelogarch411@fit$residuals^2)
+
+datosotros  <- cbind.data.frame(modelogarch411@fit[["fitted.values"]], diflogprecios.ts, modelogarch411@fit$residuals, PWTI$Fechas[-1607])
+
+otrogarchres <- (modelogarch411@fit$residuals)^2
+revmodel <- rev(modelogarch411@fit$fitted.values)
+revobs   <- rev(diflogprecios.ts)
+ggplot(datosotros)+
+  geom_line(aes(x = PWTI$Fechas[-1607], y = revmodel), col = "steelblue4", size = .8)+
+  geom_line(aes(x = PWTI$Fechas[-1607], y = revobs), col = "green4", size = .2)+
+  labs(x = "Año", y = "Tasa de crecimiento de los precios", title = "Modelo ARMA(4,11)-GARCH(1,1)")+
+  theme_clean()
+
+plot(otrogarchres, type = "l")
+pronosgarch2 <- ugarchforecast(modelogarch411, n.ahead = 30)
+plot(pronosgarch2)
+
+#Pronóstico
+pronosgarch <- ugarchforecast(modelogarch, n.ahead = 30)
+plot(pronosgarch)
+
+       
        
       
