@@ -1,0 +1,708 @@
+library(lubridate)
+library(readr)
+library(tidyverse)
+library(ggplot2)
+library(ggthemes)
+library(plyr)
+library(forecast)
+library(stats)
+library(tseries)
+library(performance)
+library(quantmod)
+library(lmtest)
+library(moments)
+library(dynlm)
+library(fpp2)
+library(readxl)
+library(mlr)
+
+# MODELO INCONDICIONAL DEL PRECIO DEL PETRÓLEO---------------------------
+
+# DATOS DE INVESTING.COM
+# Dólares por barril
+View(PWTI)
+
+# Lectura y limpieza de datos
+PWTI <- read_csv("Documents/MACROECONOMETRÍA/Proyecto/DATOS/Crude Oil WTI Futures Historical Data-4.csv")
+PWTI$Fechas     <- parse_date_time(PWTI$Date, "mdy")
+# 1607 entradas
+
+
+
+# PRECIOS SIN TRANSFORMACIONES
+
+# Gráfica de los precios en el tiempo
+ggplot(PWTI)+
+  geom_line(aes(x = PWTI$Fechas, y = PWTI$Price), 
+            color = "steelblue4", size = 1)+
+  labs(x = "Fechas",
+       y = "Precios",
+       title = "Precios de futuros de petróleo WTI en el tiempo")+
+  theme_clean()
+PWTI$Price[is.nan(PWTI$Price)] = 0
+
+# Prueba Dickey-Fueller Aumentada
+adf.test(PWTI$Price)
+# no hay evidencia para rechazar Ho (inestabilidad)
+
+# Histograma y estadísticas descriptivas
+hist(PWTI$Price, breaks = 30, xlab = "Precios", main = "Histograma", 
+     ylab = "Frecuencia", col = "steelblue4")
+mean(PWTI$Price)         
+kurtosis(PWTI$Price) 
+skewness(PWTI$Price)  
+var(PWTI$Price)
+min(PWTI$Price)
+max(PWTI$Price)
+
+# Tendencia
+tendencia1  = seq_along(PWTI$Price)
+datos      <- cbind.data.frame(PWTI$Price, tendencia1)     
+modelo     <- lm(data = datos, PWTI$Price ~ tendencia1)    
+summary(modelo) # Rechazar Ho. Podemos asumir que la tendencia tiene efecto significativo 
+
+
+
+
+# PRECIOS LOGARÍTMICOS 
+
+
+
+
+# logp = log(precio)t
+
+#La variable de precios logarítmicos
+logp = log(PWTI$Price)
+logp[is.nan(logp)] = 0
+
+# Gráfica de log(precio) contra el tiempo
+ggplot()+
+  geom_line(aes(x = PWTI$Fechas, y = logp), color = "steelblue4", size = 1)+
+  labs(x = "Fechas",
+       y = "log(Precios)",
+       title = "log(Precios) WTI en el tiempo")+
+  theme_clean()
+
+# Prueba Dickey-Fueller Aumentada
+adf.test(logp)
+
+# No rechazar. No hay evidencia en contra de inestabilidad
+
+# Histograma y estadísticas descriptivas
+hist(logp, breaks = 30, xlab = "Precios", main = "Histograma", 
+     ylab = "Frecuencia", col = "steelblue4")
+mean(logp)         
+kurtosis(logp) 
+skewness(logp)  
+var(logp)
+min(logp)
+max(logp)
+jarque.bera.test(logp)
+# evidencia para rechazar normalidad 
+
+# DIFERENCIA DE PRECIOS LOGARÍTMICOS
+
+# logp2 = log(precio)t - log(precio)t-1
+# La variable
+logp2 = diff(logp)
+
+# Gráfica de la variable en el tiempo
+ggplot()+
+  geom_line(aes(x = PWTI$Fechas[-1607], y = logp2), color = "steelblue4")+
+  labs(x = "Fechas", y = "Precios transformados", title = "Transformación: diferencia de logaritmos")+
+  theme_clean()
+
+#Prueba Dickey-Fueller Aumentada
+adf.test(seriedif)
+# evidencia en contra de inestablidad
+
+# Histograma y estadísticas descriptivas
+hist(logp2, breaks = 100, xlab = "Precios", main = "Histograma", 
+     ylab = "Frecuencia", col = "steelblue4")
+mean(logp2)         
+kurtosis(logp2) 
+skewness(logp2)  
+var(logp2)
+min(logp2)
+max(logp2)
+jarque.bera.test(logp2)
+# evidencia para rechazar normalidad
+
+# Tendencia
+tendencia2  = seq_along(logp2)
+datos2      <- cbind.data.frame(logp2, tendencia2)
+modelo2    <- lm(data = datos, logp2 ~ tendencia2)
+summary(modelo2) 
+# No rechazar Ho. Se asume que la tendencia no tiene efecto significativo
+
+
+
+
+# MODELO(S) DE COMPONENTES DETERMINÍSTICOS---------------------------------  
+
+# PRECIOS ORIGINALES
+options(max.print = 2000)
+# La serie de tiempo
+precios <- PWTI$Price
+which(precios %in% min(precios))       #en el renglón 221 está el precio negativo
+precios[221] <- .01                    #cambiando el valor negativo por .01
+min(precios)                      
+PWTI$Price = precios # 1607 entradas
+precios.ts        <- ts(data = PWTI$Price, start = 2015, frequency = 365)
+precios.ts[]      <- rev(precios.ts)  # voltea la serie
+plot(precios.ts)    
+acf(precios.ts, lag.max = 535) 
+
+# La frecuencia harmónica
+tendencia = seq_along(precios.ts)
+harmonica = (2*pi/1607)*tendencia
+
+# MODELO
+
+# Revisando tendencia y estacionalidad
+modelotendest <- tslm(data = precios.ts, formula = precios.ts ~ trend)
+summary(modelotendest)  # la tendencia es no significativa al 99 % y no hay estacionalidad significativa más que en el 292 (se quita)
+
+# Incorporando frecuencias harmónicas
+modelodet1  <-tslm(data = precios.ts, 
+                   formula = precios.ts ~
+                     cos(1*harmonica) +	sin(1*harmonica)+
+                     cos(2*harmonica)	+sin(2*harmonica)+
+                     cos(3*harmonica)	+sin(3*harmonica)+
+                     cos(4*harmonica)	+sin(4*harmonica)+
+                     cos(5*harmonica)	+sin(5*harmonica)+
+                     cos(6*harmonica)	+sin(6*harmonica)+
+                     cos(7*harmonica)	+sin(7*harmonica)+
+                     cos(8*harmonica)	+sin(8*harmonica)+
+                     sin(9*harmonica)+
+                     cos(10*harmonica)+	sin(10*harmonica)+
+                     cos(11*harmonica)+	sin(11*harmonica)+
+                     sin(12*harmonica)+
+                     cos(13*harmonica)+ sin(13*harmonica)+
+                     cos(14*harmonica)+ sin(14*harmonica)+
+                     sin(15*harmonica)+
+                     cos(16*harmonica)+ sin(16*harmonica)+
+                     cos(17*harmonica)+ sin(17*harmonica)+
+                     cos(18*harmonica)+
+                     cos(20*harmonica)+ sin(20*harmonica)+
+                     sin(21*harmonica)+
+                     cos(22*harmonica)+ sin(22*harmonica)+
+                     cos(23*harmonica)+ sin(23*harmonica)+
+                     cos(24*harmonica)+ sin(24*harmonica)+
+                     sin(25*harmonica)+
+                     cos(26*harmonica)+ sin(26*harmonica)+
+                     sin(27*harmonica)+
+                     cos(28*harmonica)+ sin(28*harmonica)+
+                     cos(29*harmonica)+ sin(29*harmonica)+
+                     sin(30*harmonica)+
+                     sin(31*harmonica)+
+                     sin(32*harmonica)+
+                     sin(34*harmonica)+
+                     sin(35*harmonica)+
+                     cos(36*harmonica)+ sin(36*harmonica)+
+                     cos(38*harmonica)+ sin(38*harmonica)+
+                     cos(40*harmonica)+ sin(40*harmonica)+
+                     cos(41*harmonica)+
+                     cos(42*harmonica)+ sin(42*harmonica)+
+                     sin(44*harmonica)+
+                     cos(45*harmonica)+ sin(45*harmonica)+
+                     sin(46*harmonica)+
+                     sin(47*harmonica))
+
+summary(modelodet1)
+datos_modelo <- cbind.data.frame(precios.ts, PWTI$Price, PWTI$Fechas, modelodet1$fitted.values)
+
+#Gráficamente: Observado , Modelado & Residuos
+revfitted <- rev(modelodet1$fitted.values)
+revres    <- rev(modelodet1$residuals)
+ggplot(datos_modelo) +
+  geom_line(aes(x=PWTI$Fechas, y=revfitted), col = "steelblue4", size = 1)+ 
+  geom_line(aes(x=PWTI$Fechas, y=rev(precios.ts)), col="green4", size = .3)+
+  geom_line(aes(x=PWTI$Fechas, y = revres), col = "black", size = .4)+
+  labs(x = "Fechas", 
+       y = "Observaciones (verde)
+             Predicciones (azul)
+             Residuos (negro)", title = "Observado (verde), modelado y residuos")+
+  theme_clean()
+
+
+#Pronóstico
+fitted <- modelodet1$fitted.values #para poder ajustar la h de pronos sin problema
+pronos      <- forecast(fitted, h = 185) 
+plot(pronos, main = "Pronóstico", ylab = "Precios")
+
+# EL componente cíclico aislado
+modelodet1$coefficients
+componentecic =  
+  cos(1 * harmonica)* -8.03620  + 
+  sin(1 * harmonica)*  -4.36294 +  
+  cos(2 * harmonica)*   2.80998 +  
+  sin(2 * harmonica)*   4.77687 +  
+  cos(3 * harmonica)*   2.60001 +   
+  sin(3 * harmonica)*   1.47811 +   
+  cos(4 * harmonica)*   4.33038 +  
+  sin(4 * harmonica)*   5.36103 +   
+  cos(5 * harmonica)*   0.99083 +   
+  sin(5 * harmonica)*  -1.30451 +   
+  cos(6 * harmonica)*  -1.17916 +   
+  sin(6 * harmonica)*  -0.49297 +   
+  cos(7 * harmonica)*  -1.61459 +   
+  sin(7 * harmonica)*  -0.70539 +   
+  cos(8 * harmonica)*  -1.69156 +   
+  sin(8 * harmonica)*  -1.52237 +   
+  sin(9 * harmonica)*   2.91024 +   
+  cos(10 * harmonica)*  2.14512 +   
+  sin(10 * harmonica)*  1.45171 +   
+  cos(11 * harmonica)*  0.39200 +   
+  sin(11 * harmonica)* -1.38691 +   
+  sin(12 * harmonica)* -1.86485 +   
+  cos(13 * harmonica)*  0.69938 +   
+  sin(13 * harmonica)* -2.74753 +   
+  cos(14 * harmonica)* -0.79485 +   
+  sin(14 * harmonica)* -1.83109 +   
+  sin(15 * harmonica)*  1.00760 +   
+  cos(16 * harmonica)*  0.78533 +   
+  sin(16 * harmonica)*  0.27940 +   
+  cos(17 * harmonica)*  0.53393 +   
+  sin(17 * harmonica)*  0.50925 +   
+  cos(18 * harmonica)*  1.23506 +   
+  cos(20 * harmonica)* -0.30815 +   
+  sin(20 * harmonica)* -0.30037 +   
+  sin(21 * harmonica)* -0.63654 +   
+  cos(22 * harmonica)* -0.66589 +   
+  sin(22 * harmonica)*  0.27038 +   
+  cos(23 * harmonica)* -0.26210 +   
+  sin(23 * harmonica)*  0.79580 +   
+  cos(24 * harmonica)*  0.39119 +   
+  sin(24 * harmonica)* -0.29415 +   
+  sin(25 * harmonica)*  0.17695 +   
+  cos(26 * harmonica)*  1.05190 +   
+  sin(26 * harmonica)* -0.17755 +   
+  sin(27 * harmonica)* -0.35117 +   
+  cos(28 * harmonica)* -0.22705 +   
+  sin(28 * harmonica)* -0.19884 +   
+  cos(29 * harmonica)* -0.60205 +   
+  sin(29 * harmonica)*  0.30682 +   
+  sin(30 * harmonica)*  0.31700 +   
+  sin(31 * harmonica)* -0.20997 +   
+  sin(32 * harmonica)*  0.27064 +   
+  sin(34 * harmonica)* -0.52165 +   
+  sin(35 * harmonica)* -0.26432 +   
+  cos(36 * harmonica)* -0.33308 +   
+  sin(36 * harmonica)* -0.23606 +   
+  cos(38 * harmonica)*  0.44411 +   
+  sin(38 * harmonica)* -0.53813 +   
+  cos(40 * harmonica)* -0.62541 +   
+  sin(40 * harmonica)* -0.57229 +   
+  cos(41 * harmonica)*  0.18406 +   
+  cos(42 * harmonica)*  0.23286 +   
+  sin(42 * harmonica)* -0.18409 +   
+  sin(44 * harmonica)* -0.23081 +   
+  cos(45 * harmonica)* -0.28535 +   
+  sin(45 * harmonica)* -0.46649 +   
+  sin(46 * harmonica)*  0.16624 +   
+  sin(47 * harmonica)*  0.17667  
+
+plot(componentecic, main = "Componente cíclico", ylab = "Ciclos", xlab = "Ciclos", type = "line")
+
+
+# DIFERENCIA LOGARÍTMICAS DE PRECIOS
+
+
+# La serie de tiempo
+diflogprecios.ts          <- ts(data = logp2, start = 2015, frequency = 365)
+diflogprecios.ts[]        <- rev(diflogprecios.ts)        # voltea la serie
+
+# La frecuencia harmónica para 1607 observaciones 
+tendencia2 = seq_along(diflogprecios.ts)
+harmonica2 = (2*pi/1607)*tendencia2
+
+# MODELO
+
+modelotendest2      <- tslm(data = diflogprecios.ts, formula =
+                              diflogprecios.ts ~ tendencia2 + season) 
+
+summary(modelotendest2) # la tendencia no es significativa y la estacionalidad, otra vez, solo 291 y 292 (alrededor de los precios negativos)
+
+# Se añadieron componentes cíclicos y ninguno salió significativo
+# La transformación removió todos los componentes determinísticos. 
+
+datos_modelo2 <- cbind.data.frame(modelotendest2$fitted.values, 
+                                  PWTI$Fechas[-1607], 
+                                  diflogprecios.ts, 
+                                  modelotendest2$residuals)
+
+#Gráficamente: Observado + Modelado + Residuos
+revfitted2     <- rev(modelotendest2$fitted.values)
+revres2        <- rev(modelotendest2$residuals)
+ggplot(datos_modelo2) +
+  geom_line(aes(x=PWTI$Fechas[-1607], y=revfitted2), 
+            col = "steelblue4", size = .8)+ 
+  geom_line(aes(x=PWTI$Fechas[-1607], y= logp2), col="green4", size = .8)+
+  geom_line(aes(x=PWTI$Fechas[-1607], y = revres2), col = "black", size = .4)+
+  labs(x = "Fechas", 
+       y = "Observaciones (verde)
+             Predicciones (azul)
+             Residuos (negro)")+
+  theme_clean()
+
+# Si le quitamos la estacionalidad al modelo
+modelotend2      <- tslm(data = diflogprecios.ts, formula =
+                           diflogprecios.ts ~ tendencia2)  
+revfitted22     <- rev(modelotend2$fitted.values)
+revres22        <- rev(modelotend2$residuals)
+
+ggplot() +
+  geom_line(aes(x=PWTI$Fechas[-1607], y=revfitted22), 
+            col = "steelblue4", size = .8)+ 
+  geom_line(aes(x=PWTI$Fechas[-1607], y= logp2), col="green4", size = .8)+
+  geom_line(aes(x=PWTI$Fechas[-1607], y = revres22), col = "black", size = .4)+
+  labs(x = "Fechas", 
+       y = "Observaciones (verde)
+             Predicciones (azul)
+             Residuos (negro)")+
+  theme_clean()
+
+# Si le quitamos la tendencia nos quedamos sin modelo, listo para incluir variables explicativas.
+
+
+
+
+
+# MODELO ARIMA ----------------------------------------------------------------------------------------------
+
+# La serie transformada 
+diflogprecios.ts
+precios.ts         # la original
+
+
+# PRIMER MOMENTO
+modeloar    <- tslm(formula = diflogprecios.ts ~ trend, data = diflogprecios.ts)
+summary(modeloar)          #no tiene tendencia significativamente distinta de cero
+#Dicky-Fueller
+adf.test(diflogprecios.ts, k = 30) #se rechaza inestabilidad. Estabilidad de orden 1.
+acf(ts(modeloar$residuals^2, frequency = 1), lag.max = 10, main = "Correlograma de residuos al cuadrado")
+
+# SEGUNDO MOMENTO
+#Definiendo la varianza 
+vari       <- (diflogprecios.ts - mean(diflogprecios.ts))^2
+modelovari <- tslm(formula = vari ~ trend, data = vari)
+summary(modelovari) # no es significativamente distinta de cero su tendencia
+adf.test(vari, k = 30) # se rechaza inestabilidad. Estabilidad debil (de orden 1 y 2).
+
+# CORRELOGRAMA 
+acf(ts(modeloar$residuals, frequency = 1), main = "Correlograma de los residuos")               
+acf(ts(modeloar$residuals^2, frequency = 1), main = "Correlograma de los residuos al cuadrado") # PONER JUEVES!!
+acf(ts(diflogprecios.ts, frequency = 1), lag.max = 535, main = "Correlograma de la serie")
+
+
+# MODELO 
+
+
+#Componentes AR
+#AR1
+modeloAR1 <- arima(diflogprecios.ts, order=c(1,0,0))     
+summary(modeloAR1) #significativo
+coeftest(modeloAR1)
+
+#AR2
+modeloAR2 <- arima(diflogprecios.ts, order=c(2,0,0))     
+summary(modeloAR2) #significativo
+coeftest(modeloAR2)
+
+#AR3
+modeloAR3 <- arima(diflogprecios.ts, order=c(3,0,0))     
+summary(modeloAR3) #significativo
+coeftest(modeloAR3)
+
+#AR4
+modeloAR4 <- arima(diflogprecios.ts, order=c(4,0,0))     
+summary(modeloAR4) #significativo
+coeftest(modeloAR4)
+
+#AR5
+modeloAR5 <- arima(diflogprecios.ts, order=c(5,0,0))     
+summary(modeloAR5) 
+coeftest(modeloAR5)  #todo significativo
+
+#AR6, AR7, AR8 y AR9 no son significativos.
+
+#Raíces
+autoplot(modeloAR5)  #hay estabilidad 
+
+#Residuos
+tsdisplay(residuals(modeloAR5), lag.max=535, 
+          main='Residuos del modelo ARIMA(5,2,0)')
+checkresiduals(modeloAR5)
+
+#Coeficientes
+tsdisplay(modeloAR5$coef, lag.max=7, main = 'Coeficientes del modelo ARIMA(5,0,0)')
+
+#Pronóstico
+pronosAR <- forecast(modeloAR5)
+plot(pronosAR)
+
+#Componentes MA 
+
+#MA1
+modeloARMA501 <- arima(diflogprecios.ts, order = c(5,0,1))   
+summary(modeloARMA501) 
+coeftest(modeloARMA501) # no significativo
+
+
+#MA2
+modeloARIMA502 <- arima(diflogprecios.ts, order = c(5,0,2))
+summary(modeloARIMA502)
+coeftest(modeloARIMA502) #AR5 no significativo
+modeloARIMA502.1 <- arima(diflogprecios.ts, 
+                          order=c(4,0,2), 
+                          fixed=c(NA, NA, NA, NA, 0, NA, NA, NA)) 
+summary(modeloARIMA502.1) 
+coeftest(modeloARIMA502.1) #todo significativo
+
+#MA3
+modeloARIMA403 <- arima(diflogprecios.ts, order = c(4,0,3),
+                        fixed=c(NA, NA, NA, NA, 0, NA, NA, NA))
+summary(modeloARIMA403)
+coeftest(modeloARIMA403) #AR3 no significativamente distinto de cero
+
+#
+#  se incorporaron más MA y MA12, 13, 14 y 15 no fueron significativas
+#
+
+
+# MODELO FINAL 1 (precios diferenciados)-------------------------------------
+
+
+modeloARIMA4011 <- arima(diflogprecios.ts, order = c(4,0,11),
+                         fixed=c(NA, 0, NA, NA, 0, NA, NA, 0, 0, NA, 0, 0, 0, NA, NA, NA))
+summary(modeloARIMA4011)
+coeftest(modeloARIMA4011)
+
+
+#Raíces
+plot(modeloARIMA4011)
+
+# CORRELOGRAMA 
+acf(ts(modeloARIMA4011$residuals, frequency = 1), lag.max = 530, main = "Correlograma de los residuos")         
+acf(ts(modeloARIMA4011$residuals^2, frequency = 1), main = "Correlograma de los residuos al cuadrado")
+
+
+#Residuos
+tsdisplay(residuals(modeloARIMA4011), lag.max=535, main='Residuos del modelo ARIMA(4,1,11)')    
+checkresiduals(modeloARIMA4011)
+residuales2 <- modeloARIMA4011$residuals^2
+residuales  <- modeloARIMA4011$residuals
+acf(ts(residuales, frequency = 1), lag.max = 535, main = 'Correlograma de los residuos')            
+acf(ts(residuales2, frequency = 1), lag.max = 10, main = 'Correlograma de los residuos al cuadrado del ARIMA(4,1,11') 
+
+#Coeficientes
+tsdisplay(modeloARIMA4011$coef, lag.max=16, main = 'Coeficientes del modelo ARIMA(4,1,11)')         
+
+#Pronóstico
+pronosarima <- forecast(modeloARIMA4011, h = 365)
+plot(pronosarima)
+View(pronosarima)
+
+#Gráficamente: observado, modelado y residuos
+revresi <-    rev(residuals(modeloARIMA4011))
+revserie <-   rev(diflogprecios.ts)   
+revpronos <-  rev(pronosarima$fitted)
+datosARIMA <- cbind.data.frame(pronosarima$fitted, residuals(modeloARIMA4011), diflogprecios.ts, PWTI$Fechas[-1607]) 
+ggplot(datosARIMA)+
+  geom_line(aes(PWTI$Fechas[-1607], revpronos), col = "steelblue4", size = .4)+
+  geom_line(aes(PWTI$Fechas[-1607], revserie), col = "green4", size = .2)+                            
+  theme_clean()
+
+#Residuos (gráficamente)
+  ggplot(datosARIMA)+
+  geom_line(aes(PWTI$Fechas[-1607], revresi), col = "black")+
+    theme_clean()# 
+
+
+#MODELO FINAL 2 (si utilizamos precios.ts en vez de diflogprecios.ts) 
+
+
+modeloAR1orig <- arima(precios.ts, order=c(0,1,1))     
+summary(modeloAR1orig) #significativo
+coeftest(modeloAR1orig)
+
+ggplot(datosgarch)+
+  geom_line(aes(x = PWTI$Fechas[-1607], y = rev(diflogprecios.ts)), col = "steelblue4", size = .4)+
+  geom_line(aes(x = PWTI$Fechas[-1607]), y = modelogarch@fit$fitted.values, col = "green4", size = .2)
+
+#Raíces
+plot(modeloAR1orig)
+
+#Correlograma
+acf(ts(modeloAR1orig$residuals, frequency = 1),lag.max = 535, main = "Correlograma de los residuos")
+acf(ts(modeloAR1orig$residuals^2, frequency = 1),lag.max = 535,main = "Correlograma de los residuos al cuadrado")
+
+#Residuos
+tsdisplay(residuals(modeloAR1orig), lag.max=535, main='Residuos del modelo ARIMA(0,1,1)')
+checkresiduals(modeloAR1orig)
+
+#Coeficientes
+tsdisplay(modeloAR1orig$coef, lag.max=8, main = 'Coeficientes del modelo ARIMA(0,1,1)')
+
+
+#Pronóstico
+pronosarima2 <- forecast(modeloAR1orig, h = 365)
+plot(pronosarima2)
+View(pronosarima2)
+revresid <-    rev(residuals(modeloAR1orig))
+revseri <-   rev(precios.ts)   
+revpronost <-  rev(pronosarima2$fitted)
+
+#Gráficamente: observado, modelado y residuos
+datosARIMA2 <- cbind.data.frame(pronosarima2$fitted, residuals(modeloAR1orig), precios.ts, PWTI$Fechas)
+ggplot(datosARIMA2)+
+  geom_line(aes(PWTI$Fechas, revpronost), col = "steelblue4", size = .8)+
+  geom_line(aes(PWTI$Fechas, revseri), col = "green4", size = .3)+
+  geom_line(aes(PWTI$Fechas, revresid), col = "black", size = .1)+
+  labs(x = "Año", y = "Precios modelados y observados; residuos", title = "Modelo ARIMA(4,1,11) De los precios del petróleo")
+
+#Residuos (gráficamente)
+ggplot(datosARIMA)+
+  geom_line(aes(PWTI$Fechas[-1607], revresi), col = "black")
+
+
+
+# GARCH Y ARCH -------------------------------------------------------------------------------
+
+
+
+library(rugarch)
+library(rmgarch)
+
+
+
+
+#PRIMER MOMENTO
+modeloinc      <- tslm(data = diflogprecios.ts,
+                       formula = diflogprecios.ts ~ trend) 
+
+summary(modeloinc)   # tendencia no significativamente distinta de cero; existe el primer momento. 
+
+
+#CORRELOGRAMA
+
+acf(ts(modeloinc$residuals^2, frequency = 1), lag.max = 10, main = "Correlograma de los residuos al cuadrado del modelo incondicional")  # PONER JUEVES!!
+acf(ts(residuales2, frequency = 1), lag.max = 10, main = 'Correlograma de los residuos al cuadrado del ARIMA(4,1,11)') # PONER JUEVES!!!
+pacf(ts(modeloinc$residuals^2, frequency = 1), lag.max = 30, main = "Correlograma de los residuos al cuadrado")  # PONER JUEVES!!
+pacf(ts(residuales2, frequency = 1), lag.max = 10, main = 'Correlograma de los residuos al cuadrado del ARIMA(4,1,11)') # PONER JUEVES!!!
+
+
+#¿Tiene AR significativo la varianza?
+residuosq     <- resid(modeloinc)^2  #residuos al cuadrado  
+vari2         <- dynlm(formula = residuosq ~ L(residuosq), data = residuosq)               # no necesario
+summary(vari2)       # AR1 de la varianza significativo
+
+
+
+# MODELO 
+
+
+
+modelo      <- ugarchspec(variance.model = list(model = "sGARCH", 
+                                                garchOrder=c(1,1)),
+                                                mean.model=list(armaOrder=c(0,0)))
+modelogarch <- ugarchfit(spec = modelo, data = diflogprecios.ts)  
+modelogarch
+
+
+#CORRELOGRAMA
+plot(modelogarch)
+
+#Guardando variables importantes 
+datosgarch   <- cbind.data.frame(modelogarch@fit$fitted.values, diflogprecios.ts, modelogarch@fit$residuals, PWTI$Fechas[-1607])
+garch.var    <- modelogarch@fit$var             #varianza del GARCH(1,1)
+adf.test(garch.var)                             #varianza estable
+garch.res2   <- (modelogarch@fit$residuals)^2   #residuos al cuadrado
+revgarch.res2 <- rev(garch.res2)              
+revdiflog     <- rev(diflogprecios.ts)          #reverseando para graficar correctamente 
+revmodel      <- rev(modelogarch@fit$fitted.values)
+
+acf(garch.res2)
+
+
+#Gráficamente (modelado vs observado)
+ggplot(datosgarch)+ 
+  geom_line(aes(x = PWTI$Fechas[-1607], y = revmodel), col = "steelblue4", size = .5)+
+  geom_line(aes(x = PWTI$Fechas[-1607], y = revdiflog), col = "green4", size = .6)+
+  geom_line(aes(x = PWTI$Fechas[-1607], y = rev(garch.var)), col = "red4", size = .3)+
+  labs(x = "Año", y = "Tasa de crecimiento de los precios", title = "Modelo ARMA(0,0)-GARCH(1,1) de los precios del petróleo")+
+  ylim(-.5,.5)
+  
+#Pronóstico
+pronosgarch <- ugarchforecast(modelogarch, n.ahead = 180)
+plot(pronosgarch)
+
+
+
+# MODELO FINAL ----------------
+
+modelocero      <- ugarchspec() 
+modelogarch0     <- ugarchfit(spec = modelocero, data = diflogprecios.ts)  
+datos0   <- cbind.data.frame(modelogarch0@fit[["fitted.values"]], diflogprecios.ts, modelogarch0@fit$residuals, PWTI$Fechas[-1607])
+garch0.var    <- modelogarch0@fit$var             #varianza del GARCH(1,1)
+garch0.res2   <- (modelogarch0@fit$residuals)^2   #residuos al cuadrado
+revgarch0.res2 <- rev(garch0.res2)              
+revprecios     <- rev(diflogprecios.ts)           #reverseando para graficar correctamente 
+revmodel0      <- rev(modelogarch0@fit$fitted.values)
+modelogarch0
+
+#Correlograma
+plot(modelogarch0)
+
+#Residuos
+acf(modelogarch0@fit$residuals, main = "Correlograma de los residuos ARMA(1,0,1)-GARCH(1,1) de los precios del petróleo")  
+pacf(modelogarch@fit$residuals, main = "Correlograma de los residuos ARMA(1,0,1)-GARCH(1,1) de los precios del petróleo")  
+#Residuos al cuadrado
+acf(modelogarch0@fit$residuals^2, main = "Correlograma de los residuos al cuadrado ARMA(1,0,1)-GARCH(1,1)")
+pacf(modelogarch@fit$residuals^2, main = "Correlograma de los residuos al cuadrado ARMA(1,0,1)-GARCH(1,1)")
+plot(modelogarch, which = "all") 
+
+#Gráficamente
+ggplot(datos0)+
+  geom_line(aes(x = PWTI$Fechas[-1607], y = revmodel0), col = "steelblue4", size = .5)+
+  geom_line(aes(x = PWTI$Fechas[-1607], y = revprecios), col = "green4", size = .6)+
+  labs(x = "Año", y = "Tasa de crecimiento de los precios", title = "Modelo ARIMA(4,1,11)-GARCH(1,1) de los precios del petróleo")
+
+#Pronóstico
+pronosgarch <- ugarchforecast(modelogarch, n.ahead = 30)
+plot(pronosgarch)
+
+
+#POBANDO CON OTROS GARCH
+
+otrogarch     <- ugarchspec(mean.model = list(armaOrder=c(2,1)))
+modelogarch411 <- ugarchfit(spec = otrogarch, data = diflogprecios.ts)
+modelogarch411
+
+#Correlograma
+pacf(modelogarch411@fit$residuals)
+acf(modelogarch411@fit$residuals)
+pacf(modelogarch411@fit$residuals^2)
+acf(modelogarch411@fit$residuals^2)
+
+datosotros  <- cbind.data.frame(modelogarch411@fit[["fitted.values"]], diflogprecios.ts, modelogarch411@fit$residuals, PWTI$Fechas[-1607])
+
+otrogarchres <- (modelogarch411@fit$residuals)^2
+revmodel <- rev(modelogarch411@fit$fitted.values)
+revobs   <- rev(diflogprecios.ts)
+ggplot(datosotros)+
+  geom_line(aes(x = PWTI$Fechas[-1607], y = revmodel), col = "steelblue4", size = .8)+
+  geom_line(aes(x = PWTI$Fechas[-1607], y = revobs), col = "green4", size = .2)+
+  labs(x = "Año", y = "Tasa de crecimiento de los precios", title = "Modelo ARMA(4,11)-GARCH(1,1)")+
+  theme_clean()
+
+plot(otrogarchres, type = "l")
+pronosgarch2 <- ugarchforecast(modelogarch411, n.ahead = 30)
+plot(pronosgarch2)
+
+#Pronóstico
+pronosgarch <- ugarchforecast(modelogarch, n.ahead = 30)
+plot(pronosgarch)
+
+       
