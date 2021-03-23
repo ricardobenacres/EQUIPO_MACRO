@@ -228,7 +228,7 @@ ggplot(datos_modelo) +
 
 #Pronóstico
 fitted <- modelodet1$fitted.values #para poder ajustar la h de pronos sin problema
-pronos      <- forecast(fitted, h = 185) #730 para que salga el 2021 (con 365 no sale)
+pronos      <- forecast(fitted, h = 185) 
 plot(pronos, main = "Pronóstico", ylab = "Precios")
 
 # EL componente cíclico aislado
@@ -445,7 +445,7 @@ plot(pronosAR)
 #Componentes MA 
 
 #MA1
-modeloARMA501 <- arima(diflogprecios.ts, order = c(5,0,1))   #OJO YA NO SALE SIGNIFICATIVO NADA!!! HAY QUE HACER UN MA1 Y SEGUIR CON MAs
+modeloARMA501 <- arima(diflogprecios.ts, order = c(5,0,1))   
 summary(modeloARMA501) 
 coeftest(modeloARMA501) # no significativo
 
@@ -511,14 +511,13 @@ revpronos <-  rev(pronosarima$fitted)
 datosARIMA <- cbind.data.frame(pronosarima$fitted, residuals(modeloARIMA4011), diflogprecios.ts, PWTI$Fechas[-1607]) 
 ggplot(datosARIMA)+
   geom_line(aes(PWTI$Fechas[-1607], revpronos), col = "steelblue4", size = .4)+
-  geom_line(aes(PWTI$Fechas[-1607], revserie), col = "green4", size = .2)+                            # PONER JUEVES!!
+  geom_line(aes(PWTI$Fechas[-1607], revserie), col = "green4", size = .2)+                            
   theme_clean()
 
 #Residuos (gráficamente)
   ggplot(datosARIMA)+
   geom_line(aes(PWTI$Fechas[-1607], revresi), col = "black")+
-    theme_clean()# PONER JUEVES CHANCE
-  
+    theme_clean()# 
 
 
 #MODELO FINAL 2 (si utilizamos precios.ts en vez de diflogprecios.ts) 
@@ -649,7 +648,7 @@ datos0   <- cbind.data.frame(modelogarch0@fit[["fitted.values"]], diflogprecios.
 garch0.var    <- modelogarch0@fit$var             #varianza del GARCH(1,1)
 garch0.res2   <- (modelogarch0@fit$residuals)^2   #residuos al cuadrado
 revgarch0.res2 <- rev(garch0.res2)              
-revprecios     <- rev(diflogprecios.ts)          #reverseando para graficar correctamente 
+revprecios     <- rev(diflogprecios.ts)           #reverseando para graficar correctamente 
 revmodel0      <- rev(modelogarch0@fit$fitted.values)
 modelogarch0
 
@@ -657,8 +656,8 @@ modelogarch0
 plot(modelogarch0)
 
 #Residuos
-acf(modelogarch0@fit$residuals, main = "Correlograma de los residuos ARMA(1,0,1)-GARCH(1,1) de los precios del petróleo")   #PONER JUEVES
-pacf(modelogarch@fit$residuals, main = "Correlograma de los residuos ARMA(1,0,1)-GARCH(1,1) de los precios del petróleo")   #PONER JUEVES
+acf(modelogarch0@fit$residuals, main = "Correlograma de los residuos ARMA(1,0,1)-GARCH(1,1) de los precios del petróleo")  
+pacf(modelogarch@fit$residuals, main = "Correlograma de los residuos ARMA(1,0,1)-GARCH(1,1) de los precios del petróleo")  
 #Residuos al cuadrado
 acf(modelogarch0@fit$residuals^2, main = "Correlograma de los residuos al cuadrado ARMA(1,0,1)-GARCH(1,1)")
 pacf(modelogarch@fit$residuals^2, main = "Correlograma de los residuos al cuadrado ARMA(1,0,1)-GARCH(1,1)")
