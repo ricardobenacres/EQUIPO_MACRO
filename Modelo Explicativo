@@ -1,0 +1,21 @@
+library(tidyverse)
+library(lubridate)
+library(readxl)
+# Datos desde ene 2002 hasta feb 2021
+
+View(PrimerosMes)
+TYOPEC   <- read_excel("Downloads/TYOPEC.xlsx")                     # tasa y producción de la opec
+EFERUSA  <- read_excel("Documents/MACROECONOMETRÍA/EFERUSA.xls")   # Effective exch rate (USA_multilateral)
+IPI      <- read_excel("Documents/MACROECONOMETRÍA/IPIUS.xls")
+TASALP   <- read_excel("Documents/MACROECONOMETRÍA/TASALP.xls")
+PMENS    <- log(PrimerosMes$PMENS[-c(1, 232)])
+VMENS    <- log(PrimerosMes$VMENS[-c(1, 232)])
+USDMULTI <- log(EFERUSA$BROADEFER)
+IPI      <- log(IPI$IPI)
+OPECMEN  <- log(TYOPEC$OPECMEN)
+TASALP   <- log(1+TASALP/100)
+Fechas   <- PrimerosMes$fecha[-c(232, 231)]
+DATA <- cbind.data.frame(Fechas, OPECMEN, PMENS, VMENS, USDMULTI, IPI, TASALP)
+View(DATA)
+write.csv(DATA, "DATOSPMENS")
+
